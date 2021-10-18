@@ -31,6 +31,14 @@ const getWaveContract = () => {
     return new ethers.Contract(contractAddress, abi.abi, signer);
 }
 
+const sortWaves = (waves) => {
+  const wavesArr = [...waves];
+
+  wavesArr.sort((a,b) => b.timestamp.toNumber() - a.timestamp.toNumber());
+
+  return wavesArr;
+}
+
 const checkIfWalletIsConnected = async (setCurrentAccount, setWaves) => {
   try {
     const { ethereum } = window;
@@ -54,9 +62,9 @@ const checkIfWalletIsConnected = async (setCurrentAccount, setWaves) => {
 
       const wavePortalContract = getWaveContract();
 
-      const waves = await wavePortalContract.getWaves();
-      waves.sort((a,b) => new Date(a.timestamp * 1000).getTime() - new Date(b.timestamp * 1000).getTime());
-      setWaves(waves);
+      let waves = await wavePortalContract.getWaves();
+
+      setWaves(sortWaves(waves));
 
       wavePortalContract.on('NewWave', (from, message, timestamp) => {
         console.log('new wave', from, message, timestamp);
@@ -116,10 +124,6 @@ const App = () => {
       await waveTxn.wait();
       console.log(`Mined -- ${waveTxn.hash}`);
       setIsMining(false);
-
-      const waves = await wavePortalContract.getWaves();
-      waves.sort((a,b) => new Date(a.timestamp * 1000).getTime() - new Date(b.timestamp * 1000).getTime());
-      setWaves(waves);
       setMessage('');
     } catch (error) {
       console.error(error);
