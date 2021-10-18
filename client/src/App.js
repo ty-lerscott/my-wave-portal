@@ -1,10 +1,22 @@
 import { ethers } from 'ethers';
-import {Button, Box, Heading} from '@chakra-ui/react';
 import {useEffect, useState} from 'react';
+import {Button, Box, Heading, Text, Table, Thead, Tbody, Input, Tr, Th, Td, TableCaption} from '@chakra-ui/react';
 
 import abi from './utils/WavePortal.json';
 
-const contractAddress = "0x742dE00e591EdE1dc744356217ADAE4ab1B93403";
+const contractAddress = "0xA11BB5c6C8bABa0045BaF4b393d119151158AeCf";
+
+const abbreviate = (str) => {
+  let abbreviated;
+  if (str >= 42) {
+      abbreviated = `${str.substring(0,6)}...${str.substring(str.length - 4)}`
+  } else {
+      abbreviated = str;
+  }
+
+  return abbreviated;
+}
+
 
 const getWaveContract = () => {
   const {ethereum} = window;
@@ -19,7 +31,7 @@ const getWaveContract = () => {
     return new ethers.Contract(contractAddress, abi.abi, signer);
 }
 
-const checkIfWalletIsConnected = async (setCurrentAccount, setTotalWaves) => {
+const checkIfWalletIsConnected = async (setCurrentAccount, setWaves) => {
   try {
     const { ethereum } = window;
 
@@ -42,8 +54,8 @@ const checkIfWalletIsConnected = async (setCurrentAccount, setTotalWaves) => {
 
       const wavePortalContract = getWaveContract();
 
-      let count = await wavePortalContract.getTotalWaves();
-      setTotalWaves(count.toNumber());
+      const waves = await wavePortalContract.getWaves();
+      setWaves(waves);
     } else {
       console.log("No authorized account found")
     }
@@ -53,12 +65,13 @@ const checkIfWalletIsConnected = async (setCurrentAccount, setTotalWaves) => {
 }
 
 const App = () => {
-  const [totalWaves, setTotalWaves] = useState(0);
+  const [message, setMessage] = useState('');
+  const [waves, setWaves] = useState([]);
   const [isMining, setIsMining] = useState(false);
   const [currentAccount, setCurrentAccount] = useState("");
 
   useEffect(() => {
-    checkIfWalletIsConnected(setCurrentAccount, setTotalWaves);
+    checkIfWalletIsConnected(setCurrentAccount, setWaves);
   }, [])
 
   const connectWallet = async () => {
@@ -83,38 +96,64 @@ const App = () => {
     try {
       const {ethereum} = window;
 
-      if (!ethereum) {
+      if (!ethereum || !message.length) {
         console.log('Etherium object does not exist!');
         return;
       }
 
       const wavePortalContract = getWaveContract()
 
-      let count = await wavePortalContract.getTotalWaves();
-      setTotalWaves(count.toNumber());
-
       // now actually wave
-      const waveTxn = await wavePortalContract.wave();
+      const waveTxn = await wavePortalContract.wave(message);
       console.log("Mining...", waveTxn.hash);
       setIsMining(true);
       await waveTxn.wait();
       console.log(`Mined -- ${waveTxn.hash}`);
       setIsMining(false);
 
-      count = await wavePortalContract.getTotalWaves();
-      setTotalWaves(count.toNumber());
+      const waves = await wavePortalContract.getWaves();
+
+      setWaves(waves);
+      setMessage('');
     } catch (error) {
       console.error(error);
     }
   }
 
+  const handleChange = (evt) => setMessage(evt.target.value);
 
   return (
     <Box className="App" display="flex" maxW="36rem" m="1rem auto" alignItems="center" flexDirection="column">
-      {totalWaves ? <Heading mb="1rem">Total Waves: {totalWaves}</Heading> : null}
+      <Text>Welcome,</Text>
+      <Text>This site is powered by React & smart contracts on the ethereum rinkeby blockchain</Text>
+      {waves.length ? <Heading mb="1rem">Total Waves: {waves.length}</Heading> : null}
       {!currentAccount ?
         <Button colorScheme="purple" onClick={connectWallet}>Connect Wallet</Button>
-      : <Button colorScheme="green" isLoading={isMining} loadingText="Mining..." onClick={wave}>Wave</Button>}
+      : (
+        <Box display="flex" gridGap="1rem">
+          <Input placeholder="Message..." value={message} onChange={handleChange} />
+          <Button colorScheme="green" isLoading={isMining} loadingText="Mining..." onClick={wave} disabled={!message.length}>Wave</Button>
+        </Box>
+      )}
+      <Table mt="1rem">
+        <TableCaption>Past Waves</TableCaption>
+        <Thead>
+          <Tr>
+            <Th>Waver</Th>
+            <Th>Timestamp</Th>
+            <Th>Message</Th>
+          </Tr>
+        </Thead>
+        <Tbody>
+          {waves.map(wave => (
+            <Tr key={wave.waver}>
+              <Td>{abbreviate(wave.waver)}</Td>
+              <Td>{new Date(wave.timestamp * 1000).toString()}</Td>
+              <Td>{wave.message}</Td>
+            </Tr>
+          ))}
+        </Tbody>
+      </Table>
     </Box>
   );
 }
