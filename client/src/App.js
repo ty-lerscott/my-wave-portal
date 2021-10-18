@@ -1,10 +1,10 @@
 import { ethers } from 'ethers';
 import {useEffect, useState} from 'react';
-import {Button, Box, Heading, Text, Table, Thead, Tbody, Input, Tr, Th, Td, TableCaption} from '@chakra-ui/react';
+import {Button, Box, Heading, Text, Link, Table, Thead, Tbody, Input, Tr, Th, Td, TableCaption} from '@chakra-ui/react';
 
 import abi from './utils/WavePortal.json';
 
-const contractAddress = "0xA11BB5c6C8bABa0045BaF4b393d119151158AeCf";
+const contractAddress = "0x80e4CccF8347c3f46ab7773E4196e4EBee8F9D60";
 
 const abbreviate = (str) => {
   let abbreviated;
@@ -55,7 +55,13 @@ const checkIfWalletIsConnected = async (setCurrentAccount, setWaves) => {
       const wavePortalContract = getWaveContract();
 
       const waves = await wavePortalContract.getWaves();
+      waves.sort((a,b) => new Date(a.timestamp * 1000).getTime() - new Date(b.timestamp * 1000).getTime());
       setWaves(waves);
+
+      wavePortalContract.on('NewWave', (from, message, timestamp) => {
+        console.log('new wave', from, message, timestamp);
+        setWaves(prevState => [{waver: from, message, timestamp}, ...prevState])
+      })
     } else {
       console.log("No authorized account found")
     }
@@ -112,7 +118,7 @@ const App = () => {
       setIsMining(false);
 
       const waves = await wavePortalContract.getWaves();
-
+      waves.sort((a,b) => new Date(a.timestamp * 1000).getTime() - new Date(b.timestamp * 1000).getTime());
       setWaves(waves);
       setMessage('');
     } catch (error) {
@@ -125,12 +131,12 @@ const App = () => {
   return (
     <Box className="App" display="flex" maxW="36rem" m="1rem auto" alignItems="center" flexDirection="column">
       <Text>Welcome,</Text>
-      <Text>This site is powered by React & smart contracts on the ethereum rinkeby blockchain</Text>
+      <Text>This site is powered by <Link href="https://reactjs.org/" target="_blank" color="green.500">React</Link>, <Link href="https://chakra-ui.com/" target="_blank" color="green.500">ChakraUI</Link> & smart contracts on the ethereum rinkeby blockchain</Text>
       {waves.length ? <Heading mb="1rem">Total Waves: {waves.length}</Heading> : null}
       {!currentAccount ?
         <Button colorScheme="purple" onClick={connectWallet}>Connect Wallet</Button>
       : (
-        <Box display="flex" gridGap="1rem">
+        <Box display="flex" gridGap="1rem" mt="1rem">
           <Input placeholder="Message..." value={message} onChange={handleChange} />
           <Button colorScheme="green" isLoading={isMining} loadingText="Mining..." onClick={wave} disabled={!message.length}>Wave</Button>
         </Box>
@@ -145,8 +151,8 @@ const App = () => {
           </Tr>
         </Thead>
         <Tbody>
-          {waves.map(wave => (
-            <Tr key={wave.waver}>
+          {waves.map((wave, index) => (
+            <Tr key={`${wave.waver}-${index}`}>
               <Td>{abbreviate(wave.waver)}</Td>
               <Td>{new Date(wave.timestamp * 1000).toString()}</Td>
               <Td>{wave.message}</Td>
